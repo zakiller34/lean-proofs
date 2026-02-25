@@ -330,18 +330,18 @@ theorem algorithmA_correct (pp : ParallelPrefix α β) (a : Nat → β) (b : Nat
 
 /-! ## T8: Carry-pair operator instantiates the framework -/
 
-/-- cpOp satisfies all Kogge-Stone restrictions (f = g = h = cpOp). -/
-def carryPairPP : ParallelPrefix CarryPair CarryPair where
-  f := cpOp
-  g := cpOp
-  h := cpOp
-  f_assoc := cpOp_assoc
+/-- ∘ satisfies all Kogge-Stone restrictions (f = g = h = ∘). -/
+def genPropPP : ParallelPrefix GenPropPair GenPropPair where
+  f := gpOp
+  g := gpOp
+  h := gpOp
+  f_assoc := gpOp_assoc
   g_distrib := by
     intro a x y
     obtain ⟨ga, pa⟩ := a; obtain ⟨gx, px⟩ := x; obtain ⟨gy, py⟩ := y
-    simp only [cpOp, Prod.mk.injEq]
+    simp only [gpOp, GenPropPair.mk.injEq]
     constructor <;> cases ga <;> cases pa <;> cases gx <;> cases px <;> cases gy <;> cases py <;> rfl
-  g_semi_assoc := fun a b x => (cpOp_assoc a b x).symm
-  h_assoc := cpOp_assoc
+  g_semi_assoc := fun a b x => (gpOp_assoc a b x).symm
+  h_assoc := gpOp_assoc
 
 end BinaryAddition

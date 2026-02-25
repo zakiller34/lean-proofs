@@ -23,48 +23,50 @@ def generate (i : Nat) (x y : BitVec w) : Bool :=
 def propagate (i : Nat) (x y : BitVec w) : Bool :=
   x.getLsbD i ^^ y.getLsbD i
 
-/-! ## D3: CarryPair — a (generate, propagate) pair -/
+/-! ## D3: GenPropPair — a (generate, propagate) pair -/
 
-/-- A carry pair (g, p) where g = "generates carry" and p = "propagates carry". -/
-abbrev CarryPair := Bool × Bool
+/-- A carry pair where `generate` = "generates carry" and `propagate` = "propagates carry". -/
+@[ext] structure GenPropPair where
+  generate  : Bool
+  propagate : Bool
+  deriving DecidableEq, Repr
 
 /-! ## D4: The ∘ operator on carry pairs (Brent-Kung §2) -/
 
 /-- The carry-pair composition operator.
     (g, p) ∘ (g', p') = (g ∨ (p ∧ g'), p ∧ p')
     This composes the carry behavior of two adjacent bit-blocks. -/
-def cpOp (a b : CarryPair) : CarryPair :=
-  (a.1 || (a.2 && b.1), a.2 && b.2)
+def gpOp (a b : GenPropPair) : GenPropPair :=
+  ⟨a.generate || (a.propagate && b.generate), a.propagate && b.propagate⟩
 
-instance : HMul CarryPair CarryPair CarryPair where
-  hMul := cpOp
+scoped infixl:70 " ∘ " => gpOp
 
-/-! ## D5: Block generate/propagate — prefix fold of cpOp -/
+/-! ## D5: Block generate/propagate — prefix fold of gpOp -/
 
 /-- Block generate/propagate for bits [0, i).
     Computes the cumulative carry behavior from bit 0 through bit i-1.
-    - blockGP 0 returns (false, true) as identity for cpOp.
-    - blockGP (n+1) = cpOp (generate n, propagate n) (blockGP n).
-    The key invariant is: (blockGP i x y).1 = BitVec.carry i x y false. -/
-def blockGP (i : Nat) (x y : BitVec w) : CarryPair :=
+    - blockGP 0 returns ⟨false, true⟩ as identity for ∘.
+    - blockGP (n+1) = ⟨generate n, propagate n⟩ ∘ (blockGP n).
+    The key invariant is: (blockGP i x y).generate = BitVec.carry i x y false. -/
+def blockGP (i : Nat) (x y : BitVec w) : GenPropPair :=
   match i with
-  | 0 => (false, true)  -- identity: no generation, full propagation
-  | n + 1 => cpOp (generate n x y, propagate n x y) (blockGP n x y)
+  | 0 => ⟨false, true⟩  -- identity: no generation, full propagation
+  | n + 1 => ⟨generate n x y, propagate n x y⟩ ∘ blockGP n x y
 
 /-! ## Unfolding lemmas -/
 
 @[simp] theorem blockGP_zero (x y : BitVec w) :
-    blockGP 0 x y = (false, true) := rfl
+    blockGP 0 x y = ⟨false, true⟩ := rfl
 
 theorem blockGP_succ (i : Nat) (x y : BitVec w) :
     blockGP (i + 1) x y =
-      cpOp (generate i x y, propagate i x y) (blockGP i x y) := rfl
+      ⟨generate i x y, propagate i x y⟩ ∘ blockGP i x y := rfl
 
-@[simp] theorem cpOp_fst (a b : CarryPair) :
-    (cpOp a b).1 = (a.1 || (a.2 && b.1)) := rfl
+@[simp] theorem gpOp_generate (a b : GenPropPair) :
+    (a ∘ b).generate = (a.generate || (a.propagate && b.generate)) := rfl
 
-@[simp] theorem cpOp_snd (a b : CarryPair) :
-    (cpOp a b).2 = (a.2 && b.2) := rfl
+@[simp] theorem gpOp_propagate (a b : GenPropPair) :
+    (a ∘ b).propagate = (a.propagate && b.propagate) := rfl
 
 /-! ## Key bridge lemma: atLeastTwo ↔ generate/propagate formulation -/
 

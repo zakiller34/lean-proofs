@@ -20,12 +20,12 @@ namespace BinaryAddition
 
 /-- Group propagate: AND of propagate bits in range [lo, hi). -/
 def groupPropagate (lo hi : Nat) (x y : BitVec w) : Bool :=
-  (blockGP_range lo hi x y).2
+  (blockGP_range lo hi x y).propagate
 
 /-- Group generate: carry generated within [lo, hi) with carry-in = 0.
     Equals the first component of blockGP_range. -/
 def groupGenerate (lo hi : Nat) (x y : BitVec w) : Bool :=
-  (blockGP_range lo hi x y).1
+  (blockGP_range lo hi x y).generate
 
 /-! ## T9: Carry group decomposition (Brent 1970, Lemma 1)
 
@@ -262,7 +262,7 @@ private lemma ratio_bound_eventually (ε : ℝ) (hε : 0 < ε) :
   have hkm2_pos : (0 : ℝ) < (k : ℝ) - 2 := by linarith
   -- From k > 4/ε + 3: ε*(k-3) > 4
   have hεkm3 : ε * ((k : ℝ) - 3) > 4 := by
-    have h1 : ε * (4 / ε + 3) < ε * (k : ℝ) := mul_lt_mul_of_pos_left hk_large hε
+    have h1 : ε * (4 / ε + 3) < ε * (k : ℝ) := by nlinarith
     rw [mul_add, mul_div_cancel₀ _ (ne_of_gt hε)] at h1
     linarith
   -- ε*k*(k-3) ≥ 4*k
