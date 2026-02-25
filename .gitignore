@@ -1,0 +1,15 @@
+# Lean build artifacts
+/.lake
+.lake/
+
+# OS
+.DS_Store
+
+# Output project folders
+output/*/*.lake
+
+# Inputs
+inputs/
+
+# IDE
+.claude/
