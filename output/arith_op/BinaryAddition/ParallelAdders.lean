@@ -1,5 +1,5 @@
 /-
-  BinaryAddition/BrentKung.lean — Brent-Kung 1982 theorems
+  BinaryAddition/ParallelAdders.lean — Parallel adder equations and theorems
 
   Core results from "A Regular Layout for Parallel Adders" (Brent & Kung 1982):
   - T1: ∘ is associative (Lemma 2)
@@ -26,6 +26,71 @@ theorem gpOp_assoc (a b c : GenPropPair) :
   obtain ⟨a1, a2⟩ := a; obtain ⟨b1, b2⟩ := b; obtain ⟨c1, c2⟩ := c
   simp only [gpOp, GenPropPair.mk.injEq]
   constructor <;> cases a1 <;> cases a2 <;> cases b1 <;> cases b2 <;> cases c1 <;> cases c2 <;> rfl
+
+/-! ## Algebraic instances -/
+
+instance : Mul GenPropPair := ⟨gpOp⟩
+instance : One GenPropPair := ⟨⟨false, true⟩⟩
+
+@[simp] theorem mul_def (a b : GenPropPair) : a * b = a ∘ b := rfl
+@[simp] theorem one_def : (1 : GenPropPair) = ⟨false, true⟩ := rfl
+
+instance : Monoid GenPropPair where
+  mul_assoc := gpOp_assoc
+  one_mul := gpOp_id_left
+  mul_one := gpOp_id_right
+
+theorem mul_eq_gpOp (a b : GenPropPair) : a * b = a ∘ b := rfl
+
+/-! ## Named elements -/
+
+/-- Kill: absorbs carry (neither generates nor propagates). Bottom element. -/
+def gpKill : GenPropPair := ⟨false, false⟩
+/-- Propagate: passes carry through. Equals `1` (identity for ∘). -/
+def gpPropagate : GenPropPair := ⟨false, true⟩
+/-- Generate: creates a new carry. -/
+def gpGenerate : GenPropPair := ⟨true, false⟩
+
+@[simp] theorem gpPropagate_eq_one : gpPropagate = 1 := rfl
+
+/-! ## Partial order (product order on Bool × Bool) -/
+
+instance : LE GenPropPair :=
+  ⟨fun a b => a.generate ≤ b.generate ∧ a.propagate ≤ b.propagate⟩
+
+instance : LT GenPropPair :=
+  ⟨fun a b => a ≤ b ∧ ¬b ≤ a⟩
+
+@[simp] theorem GenPropPair.le_def (a b : GenPropPair) :
+    a ≤ b ↔ a.generate ≤ b.generate ∧ a.propagate ≤ b.propagate := Iff.rfl
+
+instance : PartialOrder GenPropPair where
+  le_refl a := ⟨le_refl _, le_refl _⟩
+  le_trans _ _ _ hab hbc := ⟨le_trans hab.1 hbc.1, le_trans hab.2 hbc.2⟩
+  le_antisymm _ _ hab hba :=
+    GenPropPair.ext (le_antisymm hab.1 hba.1) (le_antisymm hab.2 hba.2)
+
+/-! ## Order lemmas -/
+
+@[simp] theorem gpKill_le (a : GenPropPair) : gpKill ≤ a :=
+  ⟨Bool.false_le _, Bool.false_le _⟩
+
+theorem gpGenerate_gpPropagate_incomparable :
+    ¬(gpGenerate ≤ gpPropagate) ∧ ¬(gpPropagate ≤ gpGenerate) := by
+  constructor
+  · intro ⟨h, _⟩; exact absurd h (by decide)
+  · intro ⟨_, h⟩; exact absurd h (by decide)
+
+/-! ## Monotonicity of ∘ -/
+
+theorem gpOp_right_mono (a : GenPropPair) {b b' : GenPropPair} (h : b ≤ b') :
+    a ∘ b ≤ a ∘ b' := by
+  obtain ⟨hg, hp⟩ := h
+  constructor
+  · simp only [gpOp_generate]
+    cases a.generate <;> cases a.propagate <;> simp_all
+  · simp only [gpOp_propagate]
+    cases a.propagate <;> simp_all
 
 /-! ## T2: Carry equals block generate (Brent-Kung Lemma 1) -/
 

@@ -1,4 +1,6 @@
 import BinaryAddition.Defs
-import BinaryAddition.BrentKung
-import BinaryAddition.KoggeStone
-import BinaryAddition.Brent1970
+import BinaryAddition.ParallelAdders
+import BinaryAddition.GeneralizedRecurrenceEquations
+import BinaryAddition.CircuitDefs
+import BinaryAddition.AdderComplexity
+import BinaryAddition.ParallelComplexity

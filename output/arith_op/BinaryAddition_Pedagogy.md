@@ -82,7 +82,7 @@ theorem atLeastTwo_eq_gp (a b c : Bool) :
 
 ---
 
-## File: `BinaryAddition/BrentKung.lean` — Core Theorems
+## File: `BinaryAddition/ParallelAdders.lean` — Parallel Adder Equations & Theorems
 
 ### T1: `gpOp_assoc` — Associativity (Brent-Kung Lemma 2)
 ```lean
@@ -129,7 +129,7 @@ theorem blockGP_split (i j : Nat) (hj : j ≤ i) (x y : BitVec w) :
 
 ---
 
-## File: `BinaryAddition/KoggeStone.lean` — General Framework
+## File: `BinaryAddition/GeneralizedRecurrenceEquations.lean` — General Framework
 
 ### D6-D9: `ParallelPrefix` structure
 ```lean
@@ -167,21 +167,26 @@ Shows that `(GenPropPair, ∘, ∘, ∘)` satisfies all four Kogge-Stone restric
 
 ---
 
-## File: `BinaryAddition/Brent1970.lean` — Complexity Bounds
+## File: `BinaryAddition/CircuitDefs.lean` — Circuit Model
+
+### D13: Circuit model
+Defines `GateOp`, `BoolCircuit`, and `AcyclicCircuit` — a concrete DAG of AND/OR/XOR/NOT gates with bounded fan-in, used to model circuit depth.
+
+---
+
+## File: `BinaryAddition/AdderComplexity.lean` — Adder-Specific Complexity
 
 ### D12: Group propagate/generate
 Defines the carry behavior of groups of bits, used to decompose the carry computation into a two-level structure.
 
-### T9: `carry_split` — Carry decomposes at split points
-```lean
-theorem carry_split (lo hi : Nat) (hlo : lo ≤ hi) (x y : BitVec w) :
-    BitVec.carry (hi + 1) x y false =
-      ((blockGP_range lo hi x y).generate ||
-       ((blockGP_range lo hi x y).propagate && BitVec.carry (lo + 1) x y false))
-```
-This is the formalized version of Brent 1970 Lemma 1. The carry at position hi+1 equals either a carry generated in the upper block, or a carry from the lower block propagated through the upper block.
+### T9: `carry_group_decomposition` — Carry decomposes at split points
+Restates `carry_decompose` from `ParallelAdders` using group terminology.
 
-### D13: `DepthBound` — Circuit depth model
+---
+
+## File: `BinaryAddition/ParallelComplexity.lean` — Complexity Bounds
+
+### `DepthBound` — Abstract depth function
 ```lean
 structure DepthBound (r : Nat) where
   t : Nat → Nat
@@ -240,17 +245,17 @@ Given ε > 0:
 
 | ID | Theorem | File | Status |
 |----|---------|------|--------|
-| T1 | `gpOp_assoc` | BrentKung | **Proved** — Bool case-split |
-| T2 | `carry_eq_blockGenerate` | BrentKung | **Proved** — induction + bridge lemma |
-| T3 | `sum_eq_propagate_xor_carry` | BrentKung | **Proved** — direct from `getLsbD_add` |
-| T4 | `blockGP_split` | BrentKung | **Proved** — induction + `gpOp_assoc` |
-| T5 | `splitting_theorem` | KoggeStone | **Proved** — gap induction + g_distrib/g_semi_assoc |
-| T6 | `solution_correct` | KoggeStone | **Proved** — 3-case induction + Q_unfold_hi |
-| T7 | `algorithmA_correct` | KoggeStone | **Proved** — joint invariant on both components |
-| T8 | `genPropPP` | KoggeStone | **Proved** — all 4 restrictions verified |
-| T9 | `carry_group_decomposition` | Brent1970 | **Proved** — direct from T2+T4 |
-| T12 | `finite_upper_bound` | Brent1970 | **Proved** — induction + triangular number arithmetic |
-| T13 | `asymptotic_bound` | Brent1970 | **Proved** — Filter.Eventually + ratio bound + tri enclosure |
+| T1 | `gpOp_assoc` | ParallelAdders | **Proved** — Bool case-split |
+| T2 | `carry_eq_blockGenerate` | ParallelAdders | **Proved** — induction + bridge lemma |
+| T3 | `sum_eq_propagate_xor_carry` | ParallelAdders | **Proved** — direct from `getLsbD_add` |
+| T4 | `blockGP_split` | ParallelAdders | **Proved** — induction + `gpOp_assoc` |
+| T5 | `splitting_theorem` | GeneralizedRecurrenceEquations | **Proved** — gap induction + g_distrib/g_semi_assoc |
+| T6 | `solution_correct` | GeneralizedRecurrenceEquations | **Proved** — 3-case induction + Q_unfold_hi |
+| T7 | `algorithmA_correct` | GeneralizedRecurrenceEquations | **Proved** — joint invariant on both components |
+| T8 | `genPropPP` | GeneralizedRecurrenceEquations | **Proved** — all 4 restrictions verified |
+| T9 | `carry_group_decomposition` | AdderComplexity | **Proved** — direct from T2+T4 |
+| T12 | `finite_upper_bound` | ParallelComplexity | **Proved** — induction + triangular number arithmetic |
+| T13 | `asymptotic_bound` | ParallelComplexity | **Proved** — Filter.Eventually + ratio bound + tri enclosure |
 
 ### Proof difficulty assessment
 - **Easy** (proved by `decide`/`simp`/`rfl`): T1, T3, T8 identity/id lemmas

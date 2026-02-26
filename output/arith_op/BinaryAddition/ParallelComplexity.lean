@@ -1,80 +1,23 @@
 /-
-  BinaryAddition/Brent1970.lean — Brent 1970 complexity theorems
+  BinaryAddition/ParallelComplexity.lean — Complexity of parallel computation
 
-  Formalizes results from "On the Addition of Binary Numbers" (Brent 1970):
-  - D12: Group propagate/generate definitions
-  - T9: Carry group decomposition (Lemma 1)
-  - D13: Circuit depth function model
-  - T10-T12: Complexity bounds (Lemmas 2-3, Theorem 1)
+  Formalizes abstract complexity results from "On the Addition of Binary Numbers" (Brent 1970):
+  - DepthBound: abstract depth function satisfying the grouping recurrence
+  - T12: Finite upper bound (Theorem 1): t(r^(k(k-1)/2)) ≤ k(k+1)/2
+  - T13: Asymptotic bound (Theorem 2): t(n) ≤ (1+ε) ⌈log_r n⌉ for large n
 
-  Note: Brent 1970 uses x_i = a_i ∨ b_i (propagate), y_i = a_i ∧ b_i (generate).
+  These results apply to any computation satisfying the grouping recurrence,
+  not just binary addition.
 -/
 import BinaryAddition.Defs
-import BinaryAddition.BrentKung
 import Mathlib.Tactic
 import Mathlib.Data.Nat.Log
 
 namespace BinaryAddition
 
-/-! ## D12: Group propagate and group generate -/
-
-/-- Group propagate: AND of propagate bits in range [lo, hi). -/
-def groupPropagate (lo hi : Nat) (x y : BitVec w) : Bool :=
-  (blockGP_range lo hi x y).propagate
-
-/-- Group generate: carry generated within [lo, hi) with carry-in = 0.
-    Equals the first component of blockGP_range. -/
-def groupGenerate (lo hi : Nat) (x y : BitVec w) : Bool :=
-  (blockGP_range lo hi x y).generate
-
-/-! ## T9: Carry group decomposition (Brent 1970, Lemma 1)
-
-    The carry at position hi+1 decomposes as:
-    c_{hi+1} = G_{[lo,hi+1)} ∨ (P_{[lo,hi+1)} ∧ c_lo)
-
-    This is carry_decompose from BrentKung, restated with group terminology. -/
-
-theorem carry_group_decomposition (lo hi : Nat) (hlo : lo ≤ hi) (x y : BitVec w) :
-    BitVec.carry (hi + 1) x y false =
-      (groupGenerate lo (hi + 1) x y ||
-       (groupPropagate lo (hi + 1) x y && BitVec.carry lo x y false)) := by
-  exact carry_decompose lo hi hlo x y
-
-/-! ## D13: Circuit depth model
-
-    We define a concrete circuit model: a BoolCircuit is a DAG of AND/OR/XOR/NOT gates
-    with bounded fan-in r. The depth is the longest path from any input to an output. -/
-
-/-- A circuit gate type. -/
-inductive GateOp where
-  | and | or | xor | not
-  deriving DecidableEq
-
-/-- A circuit is a list of gates, each referencing inputs by index.
-    Gate i can reference any input or gate j < i. -/
-structure BoolCircuit (numInputs : Nat) where
-  /-- Number of gates -/
-  numGates : Nat
-  /-- Each gate's operation -/
-  ops : Fin numGates → GateOp
-  /-- Each gate's input indices (into inputs ++ previous gates) -/
-  inputs : Fin numGates → List (Fin (numInputs + numGates))
-  /-- Fan-in bound -/
-  fanIn : Nat
-  /-- All gates respect fan-in -/
-  fanIn_bound : ∀ g, (inputs g).length ≤ fanIn
-
-/-- Depth of a node in the circuit.
-    Computing this requires the circuit to be acyclic (gates only reference earlier indices).
-    We constrain: gate i can only reference inputs or gates j with j < numInputs + i. -/
-structure AcyclicCircuit (numInputs : Nat) extends BoolCircuit numInputs where
-  /-- Acyclicity: each gate references only earlier nodes -/
-  acyclic : ∀ (g : Fin numGates) (inp : Fin (numInputs + numGates)),
-    inp ∈ inputs g → inp.val < numInputs + g.val
-
 /-! ## Complexity bounds using DepthBound abstraction
 
-    Rather than proving bounds for the concrete circuit model (which requires
+    Rather than proving bounds for a concrete circuit model (which requires
     constructing explicit circuits), we use an abstract depth function satisfying
     the grouping recurrence. This captures any circuit family achieving the bound. -/
 

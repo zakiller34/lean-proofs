@@ -1,5 +1,5 @@
 /-
-  BinaryAddition/KoggeStone.lean — Kogge-Stone 1973 general framework
+  BinaryAddition/GeneralizedRecurrenceEquations.lean — Kogge-Stone 1973 general framework
 
   Formalizes the parallel prefix framework from "A Parallel Algorithm for the
   Efficient Solution of a General Class of Recurrence Equations" (Kogge & Stone 1973).
@@ -12,7 +12,7 @@
   - T8: Carry-pair instantiates the framework
 -/
 import BinaryAddition.Defs
-import BinaryAddition.BrentKung
+import BinaryAddition.ParallelAdders
 
 namespace BinaryAddition
 
