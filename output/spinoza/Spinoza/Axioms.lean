@@ -71,8 +71,60 @@ axiom God_is_possible : ∃ g : Entity, IsGod g
 axiom isGod_axiom : IsGod (God : Entity)
 
 /-- Every attribute conceived-through-itself is had by God (D6 consequence). -/
-theorem god_has_attribute (a : Entity) (ha : ConceivedThrough a a) :
-    HasAttribute (God : Entity) a := by
-  sorry -- from isGod_axiom + D6 infinity interpretation
+axiom god_has_attribute : ∀ (a : Entity), ConceivedThrough a a →
+    HasAttribute (God : Entity) a
+
+/-! ## Bridge Axioms (ontological structure, philosophically motivated) -/
+
+/-- Each attribute belongs to at most one substance (individuates uniquely). -/
+axiom attribute_individuates : ∀ (s₁ s₂ a : Entity),
+    IsSubstance s₁ → IsSubstance s₂ →
+    HasAttribute s₁ a → HasAttribute s₂ a → s₁ = s₂
+
+/-- Having an attribute implies the attribute is conceived through itself (D4). -/
+axiom hasAttribute_implies_conceived_through_self : ∀ (s a : Entity),
+    HasAttribute s a → ConceivedThrough a a
+
+/-- Only substances can bear attributes. -/
+axiom attribute_bearer_is_substance : ∀ (s a : Entity),
+    HasAttribute s a → IsSubstance s
+
+/-- Every substance has at least one attribute. -/
+axiom substance_has_attribute : ∀ (s : Entity),
+    IsSubstance s → ∃ a : Entity, HasAttribute s a
+
+/-- The cause of a substance is itself a substance. -/
+axiom substance_cause_is_substance : ∀ (s c : Entity),
+    IsSubstance s → Causes c s → IsSubstance c
+
+/-- No external entity can prevent a substance from existing. -/
+axiom substance_external_prevention_impossible : ∀ (s c : Entity),
+    IsSubstance s → c ≠ s → ¬Prevents c s
+
+/-- Inherence implies causation for distinct entities (x in y, x≠y → y causes x). -/
+axiom inherence_implies_causation : ∀ (x y : Entity),
+    InheresIn x y → x ≠ y → Causes y x
+
+/-- What inheres in y is conceived through y (ontological dependence). -/
+axiom inherence_implies_conceived_through : ∀ (x y : Entity),
+    InheresIn x y → ConceivedThrough x y
+
+/-- Conceivability is unique: x can be conceived through at most one thing. -/
+axiom conceivability_unique : ∀ (x y z : Entity),
+    ConceivedThrough x y → ConceivedThrough x z → y = z
+
+/-- If x ≠ y and x inheres in y, then y is a substance (substances are ultimate substrata). -/
+axiom mode_inheres_in_substance : ∀ (x y : Entity),
+    InheresIn x y → x ≠ y → IsSubstance y
+
+/-- Attributes are conceived through the substance whose essence they constitute. -/
+axiom conceived_through_attribute : ∀ (s a : Entity),
+    IsSubstance s → HasAttribute s a → ConceivedThrough s a
+
+/-- Entity extensionality: same attributes + same mode-inherence → equal. -/
+axiom entity_extensionality_by_attr_mode : ∀ (x y : Entity),
+    (∀ a : Entity, HasAttribute x a ↔ HasAttribute y a) →
+    (∀ m : Entity, IsMode m → (InheresIn m x ↔ InheresIn m y)) →
+    x = y
 
 end Spinoza

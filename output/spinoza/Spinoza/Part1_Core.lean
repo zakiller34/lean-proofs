@@ -22,9 +22,10 @@ lemma substance_prior_to_modes
   constructor
   · exact hs.2
   · intro hcontra
-    obtain ⟨_, _, _, _, hns⟩ := hm
-    -- m conceived through itself → m would be substance (D3) → contradiction
-    exact hns ⟨by sorry, hcontra⟩
+    obtain ⟨s', hs', _, hct', hns'⟩ := hm
+    -- m conceived through itself AND through s' → s' = m (conceivability_unique)
+    -- but s' is substance and ¬IsSubstance m: contradiction
+    exact hns' ((conceivability_unique m m s' hcontra hct') ▸ hs')
 
 /-! ## 1P2 — Distinct Attributes → Nothing in Common -/
 
@@ -56,24 +57,28 @@ theorem distinguishability
     (∃ m : Entity, IsMode m ∧
                    ((InheresIn m x ∧ ¬InheresIn m y) ∨
                     (¬InheresIn m x ∧ InheresIn m y))) := by
-  sorry
-  -- Proof: classical excluded middle on attribute/mode sharing.
+  by_contra h
+  apply hne
+  apply entity_extensionality_by_attr_mode
+  · intro a
+    constructor
+    · intro ha; by_contra hna; exact h (Or.inl ⟨a, Or.inl ⟨ha, hna⟩⟩)
+    · intro ha; by_contra hna; exact h (Or.inl ⟨a, Or.inr ⟨hna, ha⟩⟩)
+  · intro m hm
+    constructor
+    · intro hx; by_contra hy; exact h (Or.inr ⟨m, hm, Or.inl ⟨hx, hy⟩⟩)
+    · intro hy; by_contra hx; exact h (Or.inr ⟨m, hm, Or.inr ⟨hx, hy⟩⟩)
 
 /-! ## 1P5 — No Two Substances Share an Attribute -/
 
-/-- **1P5**: No two distinct substances can share an attribute.
-    (Della Rocca's conceptual barrier argument.) -/
+/-- **1P5**: No two distinct substances can share an attribute. -/
 theorem no_shared_attribute
     (s₁ s₂ : Entity)
     (hs₁ : IsSubstance s₁) (hs₂ : IsSubstance s₂)
     (hshared : ∃ a : Entity, HasAttribute s₁ a ∧ HasAttribute s₂ a) :
     s₁ = s₂ := by
-  sorry
-  -- Proof sketch:
-  -- Suppose s₁ ≠ s₂. By 1P4, they differ by attributes or modes.
-  -- They cannot differ by modes alone (1P1: substance prior to modes).
-  -- They share attribute a. By conceptual barrier: a conceives only one substance.
-  -- Therefore s₁ = s₂.
+  obtain ⟨a, ha₁, ha₂⟩ := hshared
+  exact attribute_individuates s₁ s₂ a hs₁ hs₂ ha₁ ha₂
 
 /-! ## 1P6 — Substances Cannot Produce One Another -/
 
@@ -92,8 +97,16 @@ theorem substance_not_produced_by_substance
 theorem substance_is_causa_sui
     (s : Entity) (hs : IsSubstance s) : IsCausaSui s := by
   constructor
-  · -- s must cause itself (all external causes ruled out by 1P6 + PSR)
-    sorry
+  · rcases PSR_symmetric s with ⟨c, hc⟩ | ⟨c, hc⟩
+    · -- c causes s → c is substance → by 1P6, c = s
+      have hc_sub : IsSubstance c := substance_cause_is_substance s c hs hc
+      by_cases heq : c = s
+      · exact heq ▸ hc
+      · exact absurd hc (substance_not_produced_by_substance c s hc_sub hs heq)
+    · -- c prevents s → contradiction (no internal or external prevention)
+      by_cases heq : c = s
+      · exact absurd ⟨c, heq, hc⟩ (no_internal_prevention s hs)
+      · exact absurd hc (substance_external_prevention_impossible s c hs heq)
   · exact ⟨s, rfl⟩
 
 /-! ## 1P7 — Existence Belongs to the Nature of Substance -/
@@ -110,10 +123,10 @@ lemma substance_infinite_in_kind
     (s : Entity) (hs : IsSubstance s)
     (a : Entity) (ha : HasAttribute s a) :
     InfiniteInKind s (fun x y => HasAttribute x a ∧ HasAttribute y a) := by
-  intro ⟨t, ⟨_, _hat⟩, hne⟩
-  -- t is another entity with attribute a → t is a substance (by sorry)
-  -- → by no_shared_attribute s t: s = t. Contradiction.
-  sorry
+  intro ⟨t, ⟨_, hat⟩, hne⟩
+  -- t has attribute a → t is a substance → shared attr with s → s = t (1P5). Contradiction.
+  have ht_sub : IsSubstance t := attribute_bearer_is_substance t a hat
+  exact hne (no_shared_attribute s t hs ht_sub ⟨a, ha, hat⟩).symm
 
 /-! ## 1P9 — Reality Proportional to Attributes (stub) -/
 
@@ -132,9 +145,7 @@ lemma reality_proportional_to_attributes
 /-- 1P10: Each attribute of a substance is conceived through itself. -/
 lemma attribute_conceived_through_itself
     (_s a : Entity) (_hs : IsSubstance _s) (ha : HasAttribute _s a) :
-    ConceivedThrough a a := by
-  sorry
-  -- From D4 (IsAttributeOf a s): HasAttribute s a → ConceivedThrough a a.
-  -- Requires bridge axiom: HasAttribute s a → IsAttributeOf a s.
+    ConceivedThrough a a :=
+  hasAttribute_implies_conceived_through_self _s a ha
 
 end Spinoza

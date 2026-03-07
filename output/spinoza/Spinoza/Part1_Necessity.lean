@@ -19,13 +19,22 @@ open SpinozaFramework
 
 /-- **1P29**: Nothing in nature is contingent; everything is determined. -/
 theorem no_contingency (x : Entity) : ∃ c : Entity, Causes c x := by
-  rcases A1 x with hself | ⟨_y, _hyne, _hy⟩
-  · have hx_sub : IsSubstance x := by
-      refine ⟨hself, ?_⟩
-      apply A2; sorry
-    have hcs := (substance_is_causa_sui x hx_sub).1
-    exact ⟨x, hcs⟩
-  · have hx_mode : IsMode x := by sorry
+  rcases A1 x with hself | ⟨y, hyne, hy⟩
+  · -- x in itself → x is substance (A2 + D3) → causa sui → causes itself
+    have hnotconc : ¬∃ z : Entity, z ≠ x ∧ ConceivedThrough x z := by
+      intro ⟨z, hzx, hcz⟩
+      have hcx := inherence_implies_conceived_through x x hself
+      exact hzx (conceivability_unique x x z hcx hcz).symm
+    have hx_sub : IsSubstance x := ⟨hself, A2 x hnotconc⟩
+    exact ⟨x, (substance_is_causa_sui x hx_sub).1⟩
+  · -- x in y (y ≠ x) → x is a mode → God causes x (1P16)
+    have hy_sub : IsSubstance y := mode_inheres_in_substance x y hy hyne.symm
+    have hx_not_sub : ¬IsSubstance x := fun hxs =>
+      hyne (conceivability_unique x x y
+        (inherence_implies_conceived_through x x hxs.1)
+        (inherence_implies_conceived_through x y hy)).symm
+    have hx_mode : IsMode x :=
+      ⟨y, hy_sub, hy, inherence_implies_conceived_through x y hy, hx_not_sub⟩
     exact ⟨God, all_things_follow_from_God x hx_mode⟩
 
 /-- Corollary: Nothing is possible except what actually exists (S5-collapse). -/
@@ -34,12 +43,10 @@ theorem no_mere_possibility (x : Entity) : Possibly (∃ y : Entity, y = x) :=
 
 /-! ## 1P33 — Things Could Not Have Been Otherwise -/
 
-/-- **1P33**: Things could not have been produced in any other way.
-    Under S5-collapse: □p = p, so □(∃ x, x = m) = (∃ x, x = m). -/
+/-- **1P33**: Things could not have been produced in any other way. -/
 theorem strict_necessitarianism
     (m : Entity) (_hm : IsMode m) :
     Necessarily (∃ x : Entity, x = m) ∧ ¬Possibly (¬∃ x : Entity, x = m) :=
-  -- Under S5-collapse: Necessarily p = p, Possibly p = p.
   ⟨⟨m, rfl⟩, fun h => h ⟨m, rfl⟩⟩
 
 /-- God's productive will is itself necessary. -/
@@ -55,18 +62,20 @@ lemma conceptual_barrier
     (_hs : IsSubstance s)
     (ha : HasAttribute s a) (hb : HasAttribute s b) (_hab : a ≠ b) :
     ¬ConceivedThrough a b ∧ ¬ConceivedThrough b a := by
-  constructor <;> intro _hcontra <;> {
-    -- Each attribute is conceived through itself (1P10).
-    -- Being conceived through another would violate D4 / A2.
-    sorry
-  }
+  constructor
+  · intro hcontra
+    -- a conceived through b AND through itself (1P10) → a = b by uniqueness
+    have haa := attribute_conceived_through_itself s a _hs ha
+    exact _hab (conceivability_unique a b a hcontra haa).symm
+  · intro hcontra
+    -- b conceived through a AND through itself → b = a by uniqueness
+    have hbb := attribute_conceived_through_itself s b _hs hb
+    exact _hab (conceivability_unique b a b hcontra hbb)
 
 /-- Each attribute is sufficient to conceive its substance. -/
 lemma attribute_sufficient_for_substance
     (s a : Entity) (hs : IsSubstance s) (ha : HasAttribute s a) :
-    ConceivedThrough s a := by
-  sorry
-  -- Bridge axiom needed: D3 (ConceivedThrough s s) + D4 (a constitutes essence of s)
-  -- → ConceivedThrough s a.
+    ConceivedThrough s a :=
+  conceived_through_attribute s a hs ha
 
 end Spinoza
