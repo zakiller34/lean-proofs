@@ -6,6 +6,12 @@ import Spinoza.Axioms
 import Spinoza.Part1_Core
 import Spinoza.Part1_God
 import Spinoza.Part1_Necessity
+import Spinoza.MindAxioms
+import Spinoza.Part2_Mind
+import Spinoza.AffectAxioms
+import Spinoza.Part3_Affects
+import Spinoza.Part4_Bondage
+import Spinoza.Part5_Freedom
 
 /-!
 # Spinoza's *Ethics* Part I — Lean 4 Formalization
