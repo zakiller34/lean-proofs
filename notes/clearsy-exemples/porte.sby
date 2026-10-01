@@ -1,0 +1,21 @@
+[tasks]
+bmc
+prove
+prove_corrige
+
+[options]
+bmc: mode bmc
+bmc: depth 10
+prove: mode prove
+prove_corrige: mode prove
+
+[engines]
+smtbmc z3
+
+[script]
+prove_corrige: read -define CORRIGE
+read -formal porte.sv
+prep -top porte
+
+[files]
+porte.sv
