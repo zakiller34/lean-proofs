@@ -438,49 +438,193 @@ END
 
 ## 5. La CLEARSY Safety Platform (CSSP)
 
-La CSSP est un calculateur SIL4 générique et bon marché, issu du projet **LCHIP** (*Low Cost High
-Integrity Platform*). Elle se programme **uniquement en B**. Les principes de sûreté sont intégrés
-à la plateforme, ce qui évite à l'utilisateur de devenir expert en sûreté de fonctionnement.
+> **Source principale de cette section :** le *CSSP Programming Handbook*, publié par ClearSy sur
+> GitHub ([CLEARSY/CSSP-Programming-Handbook](https://github.com/CLEARSY/CSSP-Programming-Handbook)),
+> complété par les pages ClearSy et l'article de Lecomte et al. (arXiv:2005.10662).
+
+La CSSP est un **automate programmable de sécurité (PLC), générique et certifiable SIL4**, issu du
+projet **LCHIP** (*Low Cost High Integrity Platform*). Elle se programme **uniquement en B**. Toute la
+difficulté de la sûreté (redondance, diversité, autotests) est **intégrée à la plateforme et hors de
+portée du développeur**, qui n'écrit que la fonction métier, en B prouvé.
+
+### 5.1 Le problème qu'elle résout
+
+- **Un seul processeur ne suffit pas.** Un système SIL4 doit viser un taux de défaillance dangereuse
+  de 10⁻⁷ à 10⁻⁹ par heure. Or un processeur seul a une fiabilité de l'ordre de 10⁻⁴ à 10⁻⁶ par heure.
+  Il en faut donc au moins deux qui se surveillent.
+- **La preuve B ne couvre pas tout.**
+
+| Type d'erreur | Exemple | Ce qui protège |
+|---|---|---|
+| Spécification | on a spécifié le mauvais système | **rien d'automatique** : validation humaine et tests |
+| Développement | le code ne respecte pas la spécification | **preuve B** |
+| Programmation | division par zéro, débordement, tableau hors bornes | **preuve B** (obligations de bonne définition) |
+| **Compilation** | le binaire ne correspond pas au source | **diversité** : deux chaînes de compilation |
+| **Exécution** | RAM corrompue, instruction fausse, compteur ordinal corrompu | **redondance** et comparaisons |
+| Matériel d'E/S | une sortie ne répond plus à la commande | **relecture** des sorties |
+
+Traditionnellement, couvrir les trois dernières lignes exige des experts rares en matériel et en
+sûreté. L'idée de la CSSP est de le faire **une fois pour toutes dans la plateforme**.
+
+### 5.2 Le modèle de programmation : une boucle fixe
+
+```
+boucle infinie :
+   1. lire les entrées        ← imposé, non modifiable
+   2. calculer                ← LA SEULE PARTIE QUE TU ÉCRIS (opération user_logic)
+   3. écrire les sorties      ← imposé, non modifiable
+```
+
+L'IDE (Atelier B, avec un type de projet « CSSP ») génère le squelette du projet. Le développeur ne
+modifie que `user_logic`, et ajoute des composants si besoin. Voici l'exemple réel du handbook, qui
+calcule `O1 = I1 ∧ I2 ∧ I3` et `O2 = ¬O1` :
+
+```b
+user_logic =
+BEGIN
+    VAR i1_, i2_, i3_ IN
+        i1_ : (i1_ : uint8_t);   i2_ : (i2_ : uint8_t);   i3_ : (i3_ : uint8_t);
+        i1_ <-- get_I1;  i2_ <-- get_I2;  i3_ <-- get_I3;
+        O1 := IO_OFF;
+        IF i1_ = IO_ON THEN
+            IF i2_ = IO_ON THEN
+                IF i3_ = IO_ON THEN O1 := IO_ON END
+            END
+        END;
+        IF O1 = IO_ON THEN O2 := IO_OFF ELSE O2 := IO_ON END
+    END
+END
+```
+
+- **Les `IF` sont imbriqués** : le compilateur B vers HEX n'accepte **qu'une condition par `IF`**.
+  Les variables locales doivent être typées avant usage, et les opérateurs arithmétiques sont dédiés
+  pour éviter les débordements. Le compilateur reste volontairement simple.
+- **`O2 = ¬O1` est un idiome ferroviaire** : si les deux sorties sont à OFF, l'équipement est en
+  panne ou n'est plus alimenté, ce qui est détectable de l'extérieur.
+- **La spécification abstraite** de `user_logic` est ici volontairement vague (`O1 :: uint8_t`).
+  Dans un vrai projet, on y écrit la relation entrée/sortie exigée, et la preuve montre que
+  l'implémentation la respecte. Pour ce type d'application, la preuve est en grande partie automatique.
+
+### 5.3 La chaîne de génération : un modèle, deux binaires
 
 ```mermaid
 flowchart TB
-    MODEL["Modèle B de l'application<br/>(+ bibliothèque de sûreté en B)"]
-    MODEL -->|"chaîne 1 : compilateur ClearSy<br/>B0 vers code machine (HEX)"| BIN1["Binaire 1"]
-    MODEL -->|"chaîne 2 : Atelier B<br/>B0 vers C, puis GCC"| BIN2["Binaire 2"]
-    BIN1 --> MERGE["Binaire fusionné"]
-    BIN2 --> MERGE
-
-    subgraph CARTE["Carte CSSP"]
-      direction LR
-      subgraph MCU1["PIC32MX n°1"]
-        X1["exécute binaire 1 puis binaire 2<br/>sur les mêmes entrées"]
-      end
-      subgraph MCU2["PIC32MX n°2"]
-        X2["idem"]
-      end
-      CMP{"comparaison croisée<br/>des sorties"}
-      X1 --> CMP
-      X2 --> CMP
-      CMP -->|"accord"| OUTP["sorties de sécurité<br/>(relais, E/S)"]
-      CMP -->|"désaccord"| SAFE["état sûr<br/>(sorties coupées)"]
-    end
-    MERGE --> CARTE
+    MODEL["Modèle B prouvé<br/>spécification + implémentation B0"]
+    MODEL -->|"chaîne 1 (ClearSy)"| ASM["B0 vers assembleur MIPS"]
+    ASM -->|"ligne à ligne"| BIN1["binaire 1 (HEX)"]
+    MODEL -->|"chaîne 2 (Atelier B)"| CGEN["B0 vers C"]
+    CGEN -->|"GCC (Microchip)"| BIN2["binaire 2 (HEX)"]
+    BIN1 --> LINK["Éditeur de liens CSSP<br/>binaire 1 + binaire 2<br/>+ séquenceur + bibliothèque de sûreté<br/>(espaces mémoire séparés)"]
+    BIN2 --> LINK
+    LINK --> BOOT["Bootloader de la carte<br/>CRC, absence de recouvrement mémoire"]
+    BOOT --> MCU1["PIC32 n°1<br/>exécute binaire 1 puis binaire 2"]
+    BOOT --> MCU2["PIC32 n°2<br/>exécute binaire 1 puis binaire 2"]
 ```
 
-Les idées à savoir expliquer :
+- **Pourquoi deux chaînes ?** Deux outils écrits avec des technologies différentes, par des équipes
+  indépendantes, ont très peu de chances de produire **la même erreur au même endroit**. Une erreur
+  de compilation devient donc une **divergence détectée** à l'exécution. *Mon interprétation, pas
+  une citation :* c'est ce qui dispense de démontrer la correction de chaque compilateur.
+- **Pourquoi passer par l'assembleur MIPS ?** La traduction de l'assembleur vers le HEX est faite
+  ligne à ligne, ce qui facilite le débogage. Le compilateur B vers HEX a d'abord été développé pour
+  des **portes palières de métro au Brésil**.
+- **Les binaires diffèrent volontairement** : modèles mémoire différents, instructions neutres
+  (`x := y + z + 1 - 1`)... Une perturbation matérielle n'affecte alors pas les deux programmes de la
+  même façon.
+- **La bibliothèque de sûreté** est écrite et prouvée en B une fois pour toutes. Les accès
+  matériels de bas niveau sont des *machines de base* : spécifiées en B, mais implémentées à la main.
 
-- **Diversité logicielle** : deux compilateurs indépendants. Une erreur de compilation devient une
-  **divergence détectée** à l'exécution, ce qui évite de devoir qualifier un compilateur en T3.
-- **Redondance matérielle** : deux microcontrôleurs. Une défaillance aléatoire du matériel est détectée par comparaison.
-- **La preuve B** traite les erreurs **systématiques** de conception. La **redondance** traite les
-  erreurs **aléatoires** et les erreurs d'outil. La sûreté SIL4 vient de la **combinaison** des deux.
-- Il existe une version **académique** (kit éducatif) pour l'enseignement de B.
+### 5.4 L'exécution : « 2oo2 matériel, 4oo4 logiciel »
 
-> **Lien direct avec ton profil.** La chaîne 1 est un **compilateur B0 vers code machine**. C'est
-> précisément ton métier chez NanoXplore (compilateur FPGA) et dans ton projet *mini-compiler*
-> (langage ML vers x86-64). Les questions intéressantes : comment justifier la sûreté d'un
-> compilateur quand la diversité ne suffit pas ? Validation de traduction ? Vérification
-> d'équivalence comme tu le faisais avec des ROBDD ?
+Il y a **quatre instances** de la même fonction : deux binaires différents, sur chacun des deux
+microcontrôleurs. **Toutes doivent être d'accord.**
+
+| Fréquence | Vérification | Ce qu'elle détecte |
+|---|---|---|
+| **À chaque cycle** | Comparaison des **variables** de binaire₁ et binaire₂ sur le même microcontrôleur (par CRC) | Erreur de compilation, corruption de la RAM des données |
+| En tâche de fond, sur des milliers de cycles | Comparaison de la **mémoire programme** | Corruption du code |
+| **Au moins toutes les 50 ms** | Échange entre les deux microcontrôleurs, qui comparent leurs variables | Panne d'un microcontrôleur |
+| Régulièrement | État **physique** des sorties comparé à l'état commandé | Sortie qui ne répond plus |
+| En permanence | Une sortie n'est active que si **les deux** microcontrôleurs sont vivants : l'un fournit l'énergie, l'autre la commande | Microcontrôleur bloqué ou fou |
+| En permanence | Entrées rendues **dynamiques** par l'ajout d'un signal en fréquence | Un court-circuit pris pour un « 1 » |
+
+```mermaid
+stateDiagram-v2
+    [*] --> Bootloader
+    Bootloader --> Cycle: CRC et carte mémoire OK
+    Bootloader --> Panique: CRC faux
+    state Cycle {
+        [*] --> Lire
+        Lire --> Bin1: entrées
+        Bin1 --> Bin2
+        Bin2 --> Comparer
+        Comparer --> Ecrire: variables identiques
+        Ecrire --> Lire
+    }
+    Cycle --> Panique: divergence ou échec d'un contrôle
+    Panique --> [*]: remise à zéro matérielle uniquement
+```
+
+**Le mode panique, c'est le *fail-safe*.** Dès qu'**une seule** vérification échoue :
+- toutes les sorties sont coupées (elles sont normalement ouvertes, donc sans énergie, le circuit est ouvert) ;
+- la LED clignote ;
+- la carte entre dans une boucle infinie qui ne fait rien ;
+- seule une **remise à zéro matérielle** permet d'en sortir.
+
+C'est le principe ferroviaire de l'**état sûr** : en cas de doute, on coupe. Un signal sans énergie
+est au rouge, un frein sans énergie freine, une porte sans commande reste fermée.
+
+### 5.5 Les versions
+
+| Version | Usage | Différences |
+|---|---|---|
+| **Industrielle** | Projets réels. ClearSy annonce une certification SIL4 selon **EN 50126:2017, EN 50128:2011 et EN 50129:2018** | Version complète |
+| **Kits éducatifs SK0 et SK1** | Enseignement, prototypage | 5 entrées/sorties (SK0) ou 28 (SK1), toutes booléennes. Il **manque** l'isolation galvanique entre les deux moitiés de carte, et les sorties pilotées par un signal sinusoïdal. **Ces kits ne sont pas utilisables en exploitation réelle** |
+
+Côté matériel : des **PIC32**, d'environ 50 DMIPS selon le handbook (80 MIPS selon les plaquettes
+commerciales). Le handbook précise que l'architecture de sûreté vaut pour **n'importe quel
+processeur mono-cœur**, et qu'un portage vers un STM32 ne remettrait pas en cause la démonstration
+de sûreté.
+
+### 5.6 Regard critique
+
+**Points forts :**
+- Le développeur n'a **pas besoin d'être expert en sûreté**. Le coût de certification est mutualisé :
+  la plateforme est certifiée une fois, et chaque application n'a à justifier que sa logique.
+- **Un seul modèle B** produit les logiciels redondants. On évite d'avoir deux équipes qui codent
+  deux fois la même chose, comme dans la diversité classique.
+
+**Limites :**
+- **La puissance de calcul est faible.** Chaque cycle exécute deux fois le programme, plus les
+  contrôles. La plateforme vise donc le contrôle-commande booléen (portes, aiguillages, signaux,
+  passages à niveau), pas le calcul intensif.
+- **Elle détecte, elle ne tolère pas.** C'est du *fail-safe*, pas du *fail-operational* : une
+  perturbation arrête le système jusqu'à la remise à zéro. Si la disponibilité compte, il faut
+  redonder des cartes entières.
+- **Le B0 accepté par le compilateur est restreint** : une condition par `IF`, des opérateurs dédiés,
+  des variables locales à typer explicitement.
+- **La validation de la spécification reste humaine.**
+- Dans la version décrite par le handbook, il n'y a **que des entrées/sorties booléennes** ;
+  l'analogique et le réseau étaient annoncés « pour le futur ». L'état actuel est **(à vérifier)**.
+
+### 5.7 Le lien avec ton profil
+
+C'est sans doute **le produit ClearSy le plus proche de ton expérience** :
+
+| Élément de la CSSP | Ton expérience |
+|---|---|
+| Compilateur B0 → assembleur MIPS → HEX | Ton compilateur FPGA chez NanoXplore et ton *mini-compiler* ML vers x86-64 |
+| Diversité logicielle contre les erreurs de compilation | Tes ROBDD pour la vérification d'équivalence : une **autre** façon d'avoir confiance dans un compilateur (la validation de traduction) |
+| Carte double processeur, entrées dynamiques, sorties « énergie + commande » | VHDL/Verilog, SymbiYosys |
+| Bibliothèque de sûreté prouvée en B | Lean 4 : prouver les invariants d'une bibliothèque de bas niveau |
+
+**Questions intelligentes à poser en entretien :**
+1. *« La diversité couvre les erreurs de compilation par détection. Avez-vous envisagé de la
+   validation de traduction, ou un compilateur B0 prouvé, façon CompCert ? »*
+2. *« Le compilateur B vers HEX n'accepte qu'une condition par `IF`. Est-ce une limite technique, ou
+   un choix pour garder un compilateur simple à justifier ? »*
+3. *« Où en est le portage vers d'autres microcontrôleurs, et vers des entrées/sorties analogiques et
+   réseau ? »*
 
 ---
 
@@ -774,8 +918,10 @@ quadrantChart
    l'invariant est trop faible : le renforcer. (d) En dernier recours, preuve interactive. (e) Règle
    utilisateur seulement si elle est **justifiée**. Fais le parallèle avec la k-induction de SBY.
 4. **« Pourquoi la double compilation sur la CSSP ? »**
-   Pour éviter de qualifier un compilateur en T3. Deux chaînes diverses, et leurs divergences sont
-   détectées à l'exécution. Elle s'ajoute à la redondance des deux microcontrôleurs contre les fautes aléatoires.
+   Une erreur d'un compilateur devient une divergence détectée à l'exécution : deux chaînes diverses
+   (B0 → MIPS → HEX chez ClearSy, B0 → C → GCC), quatre instances comparées à chaque cycle, et un
+   passage en mode panique (sorties coupées) au moindre désaccord. La redondance des deux
+   microcontrôleurs couvre en plus les fautes matérielles aléatoires. Voir la [§5](#5-la-clearsy-safety-platform-cssp).
 5. **« TLA+ ou Event-B pour modéliser un CBTC ? »**
    Les deux conviennent pour la sûreté. Event-B apporte le raffinement prouvé et l'outillage
    qualifiable apprécié du ferroviaire. TLA+ est meilleur pour la vivacité, la fairness et les
@@ -825,6 +971,7 @@ gantt
 - Atelier B, téléchargement et tutoriels : <https://www.atelierb.eu/en/atelier-b-support-maintenance/download-atelier-b/>, <https://b-method.gitbook.io/training-resources-for-atelier-b>
 - Rodin : <https://www.event-b.org> ; ProB : <https://prob.hhu.de>
 - T. Lecomte et al., *The CLEARSY Safety Platform: 5 Years of Research, Development and Deployment*, arXiv:2005.10662.
+- ClearSy, *CSSP Programming Handbook* (avec des projets d'exemple en B) : <https://github.com/CLEARSY/CSSP-Programming-Handbook>
 - T. Lecomte, *Programming the CLEARSY Safety Platform with B*, ABZ 2020.
 - T. Lecomte et al., *Applying a Formal Method in Industry: a 25-Year Trajectory*, arXiv:2005.07190.
 - T. Lecomte, *The Bourgeois Gentleman, Engineering and Formal Methods*, arXiv:2005.08309.
@@ -845,6 +992,8 @@ Recherches web effectuées pour ce document, le 1er octobre 2026 :
 - ClearSy, Atelier B T2 Certified Edition : <https://www.clearsy.com/en/the-tools/atelier-b-t2-certified-edition-now-available-for-purchase/>
 - Atelier B Community Edition 24.04 : <https://www.atelierb.eu/en/atelier-b-community-edition-24-04-available/>
 - Lecomte et al., CSSP : <https://arxiv.org/abs/2005.10662>
+- **CSSP Programming Handbook** (ClearSy, source primaire de la §5) : <https://github.com/CLEARSY/CSSP-Programming-Handbook>
+- ClearSy, calculateur certifié SIL4 : <https://www.clearsy.com/en/railway/clearsys-safe-calculator-certified-sil4/>
 - *Programming the CSSP with B* (ABZ 2020) : <https://pmc.ncbi.nlm.nih.gov/articles/PMC7242050/>
 - *Applying a Formal Method in Industry: a 25-Year Trajectory* : <https://arxiv.org/pdf/2005.07190>
 - *The First Twenty-Five Years of Industrial Use of the B-Method* : <https://dl.acm.org/doi/10.1007/978-3-030-58298-2_8>
