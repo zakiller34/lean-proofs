@@ -23,8 +23,19 @@ Tous les chemins sont relatifs, donc l'app fonctionne aussi dans un sous-dossier
 
 ### Installer l'app
 
-- **Android (Chrome)** : menu ⋮, puis « Installer l'application ».
+- **Android, avec l'APK (sans hébergement)** : installez `dist/Predi.apk`. Le guide pas à pas est dans
+  [`INSTALL_ANDROID.md`](INSTALL_ANDROID.md), avec une version PDF : `dist/Installation-Predi-Android.pdf`.
+- **Android, en PWA (site hébergé en HTTPS)** : dans Chrome, menu ⋮, puis « Installer l'application ».
 - **Windows (Edge/Chrome)** : icône d'installation dans la barre d'adresse.
+
+### APK Android
+
+`npm run apk` produit `dist/Predi.apk`. C'est une WebView native qui embarque la PWA, servie sous
+`https://appassets.androidplatform.net` (origine sécurisée : modules ES, fetch, localStorage).
+- **Outils** : un JDK 11+ suffit. dx, ARSCLib et apksig sont téléchargés depuis Maven Central, sans SDK Android.
+- **Signature** : schéma v2, avec la clé `android/predi-release.p12`, créée au premier build et non versionnée.
+  Gardez-la pour pouvoir mettre à jour l'app sans la désinstaller.
+- **Cible** : minSdk 24 (Android 7.0), targetSdk 34.
 
 ## Arborescence
 
@@ -41,6 +52,8 @@ predi/
     styles/main.css                  -> variables, mobile-first, responsive desktop, dark mode
   tests/                             -> tests unitaires node:test
   scripts/                           -> serveur de dev, génération des icônes
+  android/                           -> coquille Android (manifest, ressources, MainActivity, build-apk.sh)
+  dist/                              -> Predi.apk et guide d'installation PDF
 ```
 
 ## Choix techniques
