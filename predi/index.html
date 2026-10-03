@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Predi</title>
+    <meta name="description" content="Prévision météo à très court terme – Boutonnet, Montpellier (AROME Météo-France)." />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f3f6fb" media="(prefers-color-scheme: light)" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="src/styles/main.css" />
+    <script type="module" src="src/main.js"></script>
+  </head>
+  <body>
+    <div class="layout">
+      <header class="header">
+        <div>
+          <h1 class="brand">Predi</h1>
+          <p class="place">Boutonnet · Montpellier</p>
+        </div>
+        <div class="header__actions">
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+          <button id="refresh" class="icon-button" type="button" aria-label="Actualiser">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main id="app" class="content">
+        <noscript><p class="message">Predi nécessite JavaScript.</p></noscript>
+      </main>
+
+      <footer class="footer">
+        Données <a href="https://open-meteo.com/" rel="noopener" target="_blank">Open-Meteo</a> · modèle AROME
+        Météo-France
+      </footer>
+    </div>
+  </body>
+</html>
