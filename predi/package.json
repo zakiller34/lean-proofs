@@ -1,0 +1,16 @@
+{
+  "name": "predi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PWA de prévision météo à très court terme – Boutonnet, Montpellier (Open-Meteo / AROME).",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test",
+    "icons": "node scripts/build-icons.mjs",
+    "apk": "bash android/build-apk.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
